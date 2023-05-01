@@ -21,7 +21,7 @@ def split_data(x, y, split=0.8, random_state=42):
 
     idxs = np.random.permutation(x.shape[0] - 1)
 
-    idx_x_train = idxs[:nval_train]
+    idx_train = idxs[:nval_train]
 
     idx_test = idxs[nval_train:]
 
@@ -33,5 +33,7 @@ def preprocess_x(df):
             .transform('count')
 
     df['counts'] = patientcounts
+
+    df = pd.get_dummies(df, columns= ['ethnicity', 'gender'])
 
     return df
