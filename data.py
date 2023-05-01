@@ -29,11 +29,14 @@ def split_data(x, y, split=0.8, random_state=42):
 
 
 def preprocess_x(df):
+
+    ### Aggregate the all the rows of a certain patient
     patientcounts = df.groupby('patientunitstayid')[['patientunitstayid']]\
             .transform('count')
+    df['patient row count'] = patientcounts # Each row holds how many times the patient was measured
 
-    df['counts'] = patientcounts
 
-    df = pd.get_dummies(df, columns= ['ethnicity', 'gender'])
+    ### Create dummies for categorical columns
+    df = pd.get_dummies(df, columns= ['ethnicity', 'gender', 'celllabel', 'labmeasurenamesystem', 'nursingchartcelltypevalname', 'labname'])
 
     return df
