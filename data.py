@@ -39,4 +39,8 @@ def preprocess_x(df):
     ### Create dummies for categorical columns
     df = pd.get_dummies(df, columns= ['ethnicity', 'gender', 'celllabel', 'labmeasurenamesystem', 'nursingchartcelltypevalname', 'labname'])
 
-    return df
+    df.drop(0, axis=1, inplace=True)
+    
+    ### TODO: Revisit this
+    # This drops all the duplicate patient stays past the first one
+    return df.drop_duplicates('patientunitstayid')

@@ -24,7 +24,6 @@ def main():
 
     ###### Your Code Here #######
     # Add anything you want here
-
     ############################
 
     processed_x_train = preprocess_x(train_x)
@@ -32,7 +31,6 @@ def main():
 
     ###### Your Code Here #######
     # Add anything you want here
-
     ############################
 
     model = Model(args)  # you can add arguments as needed
