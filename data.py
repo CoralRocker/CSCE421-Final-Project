@@ -31,8 +31,8 @@ class DeviceDataLoader():
     
     def __iter__(self):
         """Yield a batch of data after moving it to device"""
-        for b in self.dl:
-            yield to_device(b, self.device)
+        for batch in self.dl:
+            yield to_device(batch, self.device)
     
     def __len__(self):
         """Number of batches"""
@@ -45,6 +45,12 @@ class DeviceDataLoader():
 def load_data(x_path):
     return pd.read_csv(x_path, low_memory=False)
 
+###
+### Get the indeces for the validation and training splits, respectively
+###
+### n is the size of the dataset
+### split is the fraction of the data to use for training
+### random_state is the seed for the rng
 def get_data_indeces(n, split=0.8, random_state=42):
     nval = int(n * split) 
     np.random.seed(random_state)
@@ -54,9 +60,33 @@ def get_data_indeces(n, split=0.8, random_state=42):
     # Return Small Split, Large Split
     return idxs[nval:], idxs[:nval]
 
+class CustomDataset(torch.utils.data.Dataset):
+    def __init__(self, data, labels, transform=None):
+        self.data = data
+        self.labels = labels
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, idx):
+        label = self.labels[idx]
+        image = self.data[idx]
+
+        if self.transform: 
+            image = self.transform(image)
+
+        return image, label
+###
+### Get the training and validation dataloaders as well as the chosen device
+###
+### x is the non-preprocessed data
+### y is the non-preprocessed labels
+### split is the fraction of the data to use for training
+### random_state is the seed for the rng
 def get_dataloaders(x, y, split=0.8, random_state=42):
 
-    batch_size = 32
+    batch_size = 2
 
     p = preprocess_x(x) # Get the preprocessed X data
 
@@ -67,10 +97,18 @@ def get_dataloaders(x, y, split=0.8, random_state=42):
     y.sort_values(by='patientunitstayid', inplace=True)
 
     # Get default device
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    device = get_default_device()
 
     # Create the dataset of tensors and labels
-    dataset = list(zip(torch.tensor(p.to_numpy()), y))
+    dataset = CustomDataset(p.to_numpy('float32'),
+                            y['hospitaldischargestatus'].to_numpy(),
+                            torch.tensor)
+    # dataset = np.array(tuple(zip(
+    #     torch.tensor(p.to_numpy()), 
+    #     y['hospitaldischargestatus'].to_numpy()
+    #     )), dtype='float32')
+    # print(f"Dataset Shape: {dataset.shape}")
+    # print(f"Dataset: {dataset.dtype}")
 
     val_idx, train_idx = get_data_indeces(p.shape[0], split, random_state)
 
@@ -79,6 +117,9 @@ def get_dataloaders(x, y, split=0.8, random_state=42):
 
     val_sampler = SubsetRandomSampler(val_idx)
     val_dl = DataLoader(dataset, batch_size, sampler=val_sampler)
+
+    print(f"Validation index length: {len(val_idx)}, Validation DL length: {len(val_dl)}")
+    print(f"Training index length: {len(train_idx)}, Training DL length: {len(train_dl)}")
 
     print(f"Chosen device: {device}")
 
@@ -116,7 +157,6 @@ def preprocess_x(df):
     df = pd.get_dummies(df, columns= ['ethnicity', 'gender', 'celllabel', 'labmeasurenamesystem', 'nursingchartcelltypevalname', 'labname'])
 
 
-    df.drop('Unnamed: 0', axis=1, inplace=True)
     
     ### TODO: Revisit this
     # This drops all the duplicate patient stays past the first one
@@ -128,8 +168,13 @@ def preprocess_x(df):
     df['age'] = df['age'].astype('float32')
 
     ### Change CellAttributeValue to float32
-    df['cellattributevalue'] = df['cellattributevalue'].astype('float32')
-    df['nursingchartvalue'] = df['nursingchartvalue'].astype('float32')
+    # df['cellattributevalue'] = df['cellattributevalue'].astype('float32')
+    # df['nursingchartvalue'] = df['nursingchartvalue'].astype('float32')
+    
+    df.drop('Unnamed: 0', axis=1, inplace=True)
+    df.drop(['offset', 'nursingchartvalue', 'labresult', 'cellattributevalue'], axis=1, inplace=True)
 
+    df.fillna(0, inplace=True)
+    
     return df
     
