@@ -118,7 +118,7 @@ def preprocess_x(df):
     ### Looking at relevant columns (not sure if offset is relevant, currently ignoring it)
     nursing_cols = df[['patientunitstayid', 'nursingchartcelltypevalname', 'nursingchartvalue']]
     ### Some values are "Unable to score due to medication" this just drops those from the table (could probably be dealt with better)
-    nursing_cols['nursingchartvalue'] = pd.to_numeric(nursing_cols['nursingchartvalue'], errors='coerce')  # sets non-numeric cells to NaN which the get dropped
+    nursing_cols['nursingchartvalue'] = pd.to_numeric(nursing_cols['nursingchartvalue'], errors='coerce')  # sets non-numeric cells to NaN which then get dropped
     nursing_cols.dropna(inplace=True)
 
     nursing_cols = nursing_cols.groupby(['patientunitstayid', 'nursingchartcelltypevalname']) \
@@ -139,7 +139,7 @@ def preprocess_x(df):
     ### NOT currently considering the units of measurement. Naively assumes they're all the same per labname
     lab_cols = df[['patientunitstayid', 'labname', 'labresult']]
     ### Some values are "Unable to score due to medication" this just drops those from the table (could probably be dealt with better)
-    lab_cols['labresult'] = pd.to_numeric(lab_cols['labresult'], errors='coerce')  # sets non-numeric cells to NaN which the get dropped
+    lab_cols['labresult'] = pd.to_numeric(lab_cols['labresult'], errors='coerce')  # sets non-numeric cells to NaN which then get dropped
     lab_cols.dropna(inplace=True)
 
     lab_cols = lab_cols.groupby(['patientunitstayid', 'labname']) \
