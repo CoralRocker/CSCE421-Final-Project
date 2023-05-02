@@ -119,18 +119,18 @@ def preprocess_x(df):
     nursing_cols.dropna(inplace=True)
 
     nursing_cols = nursing_cols.groupby(['patientunitstayid', 'nursingchartcelltypevalname']) \
-                            .agg(nursingchartvalue_mean=('nursingchartvalue', 'mean')) \
+                            .mean() \
                             .reset_index()
 
     ### Creates a column for each unique nursingchartcelltypevalname, fills in values from mean gotten above 
     ### TODO: Is the mean a good metric to use here?
-    nursing_cols = nursing_cols.pivot(index='patientunitstayid', columns='nursingchartcelltypevalname', values='nursingchartvalue_mean')
+    nursing_cols = nursing_cols.pivot(index='patientunitstayid', columns='nursingchartcelltypevalname', values='nursingchartvalue')
     nursing_cols.columns = [str(col) for col in nursing_cols.columns]
 
     ### Merge back into df, drop og columns
     df = pd.merge(df, nursing_cols, on='patientunitstayid', how='left')
     df = df.drop(columns=['nursingchartcelltypevalname', 'nursingchartvalue'])
-    
+
 
     ### Create dummies for categorical columns
     df = pd.get_dummies(df, columns= ['ethnicity', 'gender', 'celllabel', 'labmeasurenamesystem', 'labname'])
