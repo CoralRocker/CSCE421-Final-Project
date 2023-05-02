@@ -193,7 +193,7 @@ def preprocess_x(df):
     # # df['nursingchartvalue'] = df['nursingchartvalue'].astype('float32')
     # 
     # df.drop('Unnamed: 0', axis=1, inplace=True)
-    # df.drop(['offset', 'nursingchartvalue', 'labresult', 'cellattributevalue'], axis=1, inplace=True)
+    df.drop(['offset', 'labresult'], axis=1, inplace=True)
     df['cellattributevalue'] = df['cellattributevalue'].astype('float32')
     # df['nursingchartvalue'] = df['nursingchartvalue'].astype('float32')
 
