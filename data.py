@@ -111,6 +111,9 @@ def preprocess_x(df):
             .transform('count')
     df['patient row count'] = patientcounts # Each row holds how many times the patient was measured
 
+    ### Create dummies for categorical columns
+    df = pd.get_dummies(df, columns= ['ethnicity', 'gender', 'celllabel', 'labmeasurenamesystem', 'labname'])
+
 
     ### Looking at relevant columns (not sure if offset is relevant, currently ignoring it)
     nursing_cols = df[['patientunitstayid', 'nursingchartcelltypevalname', 'nursingchartvalue']]
@@ -131,10 +134,6 @@ def preprocess_x(df):
     df = pd.merge(df, nursing_cols, on='patientunitstayid', how='left')
     df = df.drop(columns=['nursingchartcelltypevalname', 'nursingchartvalue'])
 
-
-    ### Create dummies for categorical columns
-    df = pd.get_dummies(df, columns= ['ethnicity', 'gender', 'celllabel', 'labmeasurenamesystem', 'labname'])
-
     df.drop('Unnamed: 0', axis=1, inplace=True)
 
     ### TODO: Revisit this
@@ -148,7 +147,7 @@ def preprocess_x(df):
 
     ### Change CellAttributeValue to float32
     df['cellattributevalue'] = df['cellattributevalue'].astype('float32')
-    # df['nursingchartvalue'] = df['nursingchartvalue'].astype('float32')
+    
     print(df)
 
     return df
