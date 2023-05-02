@@ -153,29 +153,50 @@ def preprocess_x(df):
             .transform('count')
     df['patient row count'] = patientcounts # Each row holds how many times the patient was measured
 
+    ### Create dummies for categorical columns
+    df = pd.get_dummies(df, columns= ['ethnicity', 'gender', 'celllabel', 'labmeasurenamesystem'])
+
 
     ### Looking at relevant columns (not sure if offset is relevant, currently ignoring it)
     nursing_cols = df[['patientunitstayid', 'nursingchartcelltypevalname', 'nursingchartvalue']]
     ### Some values are "Unable to score due to medication" this just drops those from the table (could probably be dealt with better)
-    nursing_cols['nursingchartvalue'] = pd.to_numeric(nursing_cols['nursingchartvalue'], errors='coerce')  # sets non-numeric cells to NaN which the get dropped
+    nursing_cols['nursingchartvalue'] = pd.to_numeric(nursing_cols['nursingchartvalue'], errors='coerce')  # sets non-numeric cells to NaN which then get dropped
     nursing_cols.dropna(inplace=True)
 
     nursing_cols = nursing_cols.groupby(['patientunitstayid', 'nursingchartcelltypevalname']) \
-                            .agg(nursingchartvalue_mean=('nursingchartvalue', 'mean')) \
+                            .mean() \
                             .reset_index()
 
     ### Creates a column for each unique nursingchartcelltypevalname, fills in values from mean gotten above 
     ### TODO: Is the mean a good metric to use here?
-    nursing_cols = nursing_cols.pivot(index='patientunitstayid', columns='nursingchartcelltypevalname', values='nursingchartvalue_mean')
+    nursing_cols = nursing_cols.pivot(index='patientunitstayid', columns='nursingchartcelltypevalname', values='nursingchartvalue')
     nursing_cols.columns = [str(col) for col in nursing_cols.columns]
 
     ### Merge back into df, drop og columns
     df = pd.merge(df, nursing_cols, on='patientunitstayid', how='left')
     df = df.drop(columns=['nursingchartcelltypevalname', 'nursingchartvalue'])
-    
 
-    ### Create dummies for categorical columns
-    df = pd.get_dummies(df, columns= ['ethnicity', 'gender', 'celllabel', 'labmeasurenamesystem', 'labname'])
+
+    ### Looking at relevant columns (not sure if offset is relevant, currently ignoring it)
+    ### NOT currently considering the units of measurement. Naively assumes they're all the same per labname
+    lab_cols = df[['patientunitstayid', 'labname', 'labresult']]
+    ### Some values are "Unable to score due to medication" this just drops those from the table (could probably be dealt with better)
+    lab_cols['labresult'] = pd.to_numeric(lab_cols['labresult'], errors='coerce')  # sets non-numeric cells to NaN which then get dropped
+    lab_cols.dropna(inplace=True)
+
+    lab_cols = lab_cols.groupby(['patientunitstayid', 'labname']) \
+                            .mean() \
+                            .reset_index()
+
+    ### Creates a column for each unique labname, fills in values from mean gotten above 
+    ### TODO: Is the mean a good metric to use here?
+    lab_cols = lab_cols.pivot(index='patientunitstayid', columns='labname', values='labresult')
+    lab_cols.columns = [str(col) for col in lab_cols.columns]
+
+    ### Merge back into df, drop og columns
+    df = pd.merge(df, lab_cols, on='patientunitstayid', how='left')
+    df = df.drop(columns=['labname', 'labresult'])
+
 
     df.drop('Unnamed: 0', axis=1, inplace=True)
 
