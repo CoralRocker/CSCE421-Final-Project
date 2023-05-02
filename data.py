@@ -154,11 +154,31 @@ def preprocess_x(df):
     df['patient row count'] = patientcounts # Each row holds how many times the patient was measured
 
 
-    ### Create dummies for categorical columns
-    df = pd.get_dummies(df, columns= ['ethnicity', 'gender', 'celllabel', 'labmeasurenamesystem', 'nursingchartcelltypevalname', 'labname'])
+    ### Looking at relevant columns (not sure if offset is relevant, currently ignoring it)
+    nursing_cols = df[['patientunitstayid', 'nursingchartcelltypevalname', 'nursingchartvalue']]
+    ### Some values are "Unable to score due to medication" this just drops those from the table (could probably be dealt with better)
+    nursing_cols['nursingchartvalue'] = pd.to_numeric(nursing_cols['nursingchartvalue'], errors='coerce')  # sets non-numeric cells to NaN which the get dropped
+    nursing_cols.dropna(inplace=True)
 
+    nursing_cols = nursing_cols.groupby(['patientunitstayid', 'nursingchartcelltypevalname']) \
+                            .agg(nursingchartvalue_mean=('nursingchartvalue', 'mean')) \
+                            .reset_index()
 
+    ### Creates a column for each unique nursingchartcelltypevalname, fills in values from mean gotten above 
+    ### TODO: Is the mean a good metric to use here?
+    nursing_cols = nursing_cols.pivot(index='patientunitstayid', columns='nursingchartcelltypevalname', values='nursingchartvalue_mean')
+    nursing_cols.columns = [str(col) for col in nursing_cols.columns]
+
+    ### Merge back into df, drop og columns
+    df = pd.merge(df, nursing_cols, on='patientunitstayid', how='left')
+    df = df.drop(columns=['nursingchartcelltypevalname', 'nursingchartvalue'])
     
+
+    ### Create dummies for categorical columns
+    df = pd.get_dummies(df, columns= ['ethnicity', 'gender', 'celllabel', 'labmeasurenamesystem', 'labname'])
+
+    df.drop('Unnamed: 0', axis=1, inplace=True)
+
     ### TODO: Revisit this
     # This drops all the duplicate patient stays past the first one
     df.drop_duplicates('patientunitstayid', inplace=True)
@@ -169,11 +189,13 @@ def preprocess_x(df):
     df['age'] = df['age'].astype('float32')
 
     ### Change CellAttributeValue to float32
-    # df['cellattributevalue'] = df['cellattributevalue'].astype('float32')
+    # # df['cellattributevalue'] = df['cellattributevalue'].astype('float32')
+    # # df['nursingchartvalue'] = df['nursingchartvalue'].astype('float32')
+    # 
+    # df.drop('Unnamed: 0', axis=1, inplace=True)
+    # df.drop(['offset', 'nursingchartvalue', 'labresult', 'cellattributevalue'], axis=1, inplace=True)
+    df['cellattributevalue'] = df['cellattributevalue'].astype('float32')
     # df['nursingchartvalue'] = df['nursingchartvalue'].astype('float32')
-    
-    df.drop('Unnamed: 0', axis=1, inplace=True)
-    df.drop(['offset', 'nursingchartvalue', 'labresult', 'cellattributevalue'], axis=1, inplace=True)
 
     # df.fillna(0, inplace=True)
 
