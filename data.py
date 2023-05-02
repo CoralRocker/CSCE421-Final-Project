@@ -197,7 +197,9 @@ def preprocess_x(df):
     df['cellattributevalue'] = df['cellattributevalue'].astype('float32')
     # df['nursingchartvalue'] = df['nursingchartvalue'].astype('float32')
 
-    # df.fillna(0, inplace=True)
+    df['age'].fillna(df['age'].mean(), inplace=True)
+    df['admissionweight'].fillna(df['admissionweight'].mean(), inplace=True)
+    df['admissionheight'].fillna(df['admissionheight'].mean(), inplace=True)
 
     
     return df
