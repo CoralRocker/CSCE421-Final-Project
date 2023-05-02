@@ -42,7 +42,7 @@ class Model(nn.Module):
         self.optim = optim.Adam(self.parameters, lr=self.lr)
         self.loss = MSELoss()
        
-        for epoch in range(self.epochs):
+        pass
             
 
 
