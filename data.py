@@ -5,6 +5,7 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
+from torchvision.transforms import Compose, ToTensor, Normalize
 
 ##
 ## The Following Code is Taken from Homework 6
@@ -174,7 +175,8 @@ def preprocess_x(df):
     df.drop('Unnamed: 0', axis=1, inplace=True)
     df.drop(['offset', 'nursingchartvalue', 'labresult', 'cellattributevalue'], axis=1, inplace=True)
 
-    df.fillna(0, inplace=True)
+    # df.fillna(0, inplace=True)
+
     
     return df
     

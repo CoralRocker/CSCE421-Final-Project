@@ -45,7 +45,7 @@ class Model(Module):
         # Fit your model to the training data here
         ########################################################################
 
-        self.optim = optim.SGD(self.parameters(), lr=self.lr) # optim.Adam(self.parameters(), lr=self.lr)
+        self.optim = optim.Adam(self.parameters(), lr=self.lr)
         self.loss = MSELoss()
 
 
@@ -65,7 +65,9 @@ class Model(Module):
 
                 self.optim.zero_grad()
 
-                loss = self.loss(pred.reshape(-1), y)
+                loss = self.loss(pred.reshape(-1), y.float())
+
+                loss.backward()
 
                 self.optim.step()
                 
