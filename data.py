@@ -112,7 +112,7 @@ def preprocess_x(df):
     df['patient row count'] = patientcounts # Each row holds how many times the patient was measured
 
     ### Create dummies for categorical columns
-    df = pd.get_dummies(df, columns= ['ethnicity', 'gender', 'celllabel', 'labmeasurenamesystem', 'labname'])
+    df = pd.get_dummies(df, columns= ['ethnicity', 'gender', 'celllabel', 'labmeasurenamesystem'])
 
 
     ### Looking at relevant columns (not sure if offset is relevant, currently ignoring it)
@@ -134,6 +134,28 @@ def preprocess_x(df):
     df = pd.merge(df, nursing_cols, on='patientunitstayid', how='left')
     df = df.drop(columns=['nursingchartcelltypevalname', 'nursingchartvalue'])
 
+
+    ### Looking at relevant columns (not sure if offset is relevant, currently ignoring it)
+    ### NOT currently considering the units of measurement. Naively assumes they're all the same per labname
+    lab_cols = df[['patientunitstayid', 'labname', 'labresult']]
+    ### Some values are "Unable to score due to medication" this just drops those from the table (could probably be dealt with better)
+    lab_cols['labresult'] = pd.to_numeric(lab_cols['labresult'], errors='coerce')  # sets non-numeric cells to NaN which the get dropped
+    lab_cols.dropna(inplace=True)
+
+    lab_cols = lab_cols.groupby(['patientunitstayid', 'labname']) \
+                            .mean() \
+                            .reset_index()
+
+    ### Creates a column for each unique labname, fills in values from mean gotten above 
+    ### TODO: Is the mean a good metric to use here?
+    lab_cols = lab_cols.pivot(index='patientunitstayid', columns='labname', values='labresult')
+    lab_cols.columns = [str(col) for col in lab_cols.columns]
+
+    ### Merge back into df, drop og columns
+    df = pd.merge(df, lab_cols, on='patientunitstayid', how='left')
+    df = df.drop(columns=['labname', 'labresult'])
+
+
     df.drop('Unnamed: 0', axis=1, inplace=True)
 
     ### TODO: Revisit this
@@ -147,7 +169,7 @@ def preprocess_x(df):
 
     ### Change CellAttributeValue to float32
     df['cellattributevalue'] = df['cellattributevalue'].astype('float32')
-    
+
     print(df)
 
     return df
