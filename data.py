@@ -46,6 +46,37 @@ class DeviceDataLoader():
 def load_data(x_path):
     return pd.read_csv(x_path, low_memory=False)
 
+def getOversampledDataset(x, y, n):
+
+    # Labels for Dead And Alive people
+    dead = y.loc[y['hospitaldischargestatus'] == 1]
+    live = y.loc[y['hospitaldischargestatus'] == 0]
+
+    # Data of dead and alive people
+    dead_ppl = x.loc[x['patientunitstayid'].isin(dead['patientunitstayid'])]
+    live_ppl = x.loc[x['patientunitstayid'].isin(live['patientunitstayid'])]
+
+    # Number of dead and living people
+    n_dead = int(n / 2)
+    n_live = n - n_dead
+
+    # Combined Labels of dead and living people
+    people_labels = pd.concat([dead.sample(n=n_dead, replace=True), live.sample(n=n_live, replace=True)])
+
+    # Add each ID's data to the dataframe
+    people_data = pd.DataFrame(columns=x.columns) 
+    for id in people_labels['patientunitstayid']:
+        people_data = pd.concat([
+                people_data, 
+                dead_ppl.loc[dead_ppl['patientunitstayid'] == id], 
+                live_ppl.loc[live_ppl['patientunitstayid'] == id]
+            ]) 
+
+    # Sort by patient ID to align both living and dead
+    people_labels.sort_values(by='patientunitstayid', inplace=True)
+    people_data.sort_values(by='patientunitstayid', inplace=True)
+    
+    return people_data, people_labels
 ###
 ### Get the indeces for the validation and training splits, respectively
 ###
@@ -87,30 +118,34 @@ class CustomDataset(torch.utils.data.Dataset):
 ### random_state is the seed for the rng
 def get_dataloaders(x, y, split=0.8, random_state=42):
 
+    # Get default device
+    device = get_default_device()
+
     batch_size = 128
 
     p = preprocess_x(x) # Get the preprocessed X data
 
-    # Sort by patient ID
-    p.sort_values(by='patientunitstayid', inplace=True)
-    p.drop('patientunitstayid', axis=1, inplace=True)
+    ##
+    ## Oversampled Data Process
+    ##
+    data, labels = getOversampledDataset(p, y, 2000)
+    data.drop('patientunitstayid', axis=1, inplace=True)
 
-    # Sorty Y by patient ID
-    y.sort_values(by='patientunitstayid', inplace=True)
+    dataset = CustomDataset(data.to_numpy('float32'),
+                            labels['hospitaldischargestatus'].to_numpy(),
+                            torch.tensor)
 
-    # Get default device
-    device = get_default_device()
+    # # Sort by patient ID
+    # p.sort_values(by='patientunitstayid', inplace=True)
+    # p.drop('patientunitstayid', axis=1, inplace=True)
+
+    # # Sorty Y by patient ID
+    # y.sort_values(by='patientunitstayid', inplace=True)
 
     # Create the dataset of tensors and labels
-    dataset = CustomDataset(p.to_numpy('float32'),
-                            y['hospitaldischargestatus'].to_numpy(),
-                            torch.tensor)
-    # dataset = np.array(tuple(zip(
-    #     torch.tensor(p.to_numpy()), 
-    #     y['hospitaldischargestatus'].to_numpy()
-    #     )), dtype='float32')
-    # print(f"Dataset Shape: {dataset.shape}")
-    # print(f"Dataset: {dataset.dtype}")
+    # dataset = CustomDataset(p.to_numpy('float32'),
+    #                         y['hospitaldischargestatus'].to_numpy(),
+    #                         torch.tensor)
 
     val_idx, train_idx = get_data_indeces(p.shape[0], split, random_state)
 
