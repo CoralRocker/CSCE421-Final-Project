@@ -87,12 +87,13 @@ class CustomDataset(torch.utils.data.Dataset):
 ### random_state is the seed for the rng
 def get_dataloaders(x, y, split=0.8, random_state=42):
 
-    batch_size = 2
+    batch_size = 128
 
     p = preprocess_x(x) # Get the preprocessed X data
 
     # Sort by patient ID
     p.sort_values(by='patientunitstayid', inplace=True)
+    p.drop('patientunitstayid', axis=1, inplace=True)
 
     # Sorty Y by patient ID
     y.sort_values(by='patientunitstayid', inplace=True)
@@ -154,28 +155,15 @@ def preprocess_x(df):
     df['patient row count'] = patientcounts # Each row holds how many times the patient was measured
 
 
-    ### Looking at relevant columns (not sure if offset is relevant, currently ignoring it)
-    nursing_cols = df[['patientunitstayid', 'nursingchartcelltypevalname', 'nursingchartvalue']]
-    ### Some values are "Unable to score due to medication" this just drops those from the table (could probably be dealt with better)
-    nursing_cols['nursingchartvalue'] = pd.to_numeric(nursing_cols['nursingchartvalue'], errors='coerce')  # sets non-numeric cells to NaN which the get dropped
-    nursing_cols.dropna(inplace=True)
-
-    nursing_cols = nursing_cols.groupby(['patientunitstayid', 'nursingchartcelltypevalname']) \
-                            .agg(nursingchartvalue_mean=('nursingchartvalue', 'mean')) \
-                            .reset_index()
-
-    ### Creates a column for each unique nursingchartcelltypevalname, fills in values from mean gotten above 
-    ### TODO: Is the mean a good metric to use here?
-    nursing_cols = nursing_cols.pivot(index='patientunitstayid', columns='nursingchartcelltypevalname', values='nursingchartvalue_mean')
-    nursing_cols.columns = [str(col) for col in nursing_cols.columns]
-
-    ### Merge back into df, drop og columns
-    df = pd.merge(df, nursing_cols, on='patientunitstayid', how='left')
-    df = df.drop(columns=['nursingchartcelltypevalname', 'nursingchartvalue'])
+    df = df.drop(columns=['nursingchartcelltypevalname', 'nursingchartvalue', 
+                          'celllabel', 'labmeasurenamesystem', 
+                          'labname', 'cellattributevalue',
+                          'unitvisitnumber', 'patient row count'],
+                            axis=1)
     
 
     ### Create dummies for categorical columns
-    df = pd.get_dummies(df, columns= ['ethnicity', 'gender', 'celllabel', 'labmeasurenamesystem', 'labname'])
+    df = pd.get_dummies(df, columns= ['ethnicity', 'gender'])
 
     df.drop('Unnamed: 0', axis=1, inplace=True)
 
@@ -188,18 +176,13 @@ def preprocess_x(df):
     df['age'].loc[df['age'] == '> 89'] = '90'
     df['age'] = df['age'].astype('float32')
 
-    ### Change CellAttributeValue to float32
-    # # df['cellattributevalue'] = df['cellattributevalue'].astype('float32')
-    # # df['nursingchartvalue'] = df['nursingchartvalue'].astype('float32')
-    # 
     # df.drop('Unnamed: 0', axis=1, inplace=True)
     df.drop(['offset', 'labresult'], axis=1, inplace=True)
-    df['cellattributevalue'] = df['cellattributevalue'].astype('float32')
-    # df['nursingchartvalue'] = df['nursingchartvalue'].astype('float32')
 
-    df['age'].fillna(df['age'].mean(), inplace=True)
-    df['admissionweight'].fillna(df['admissionweight'].mean(), inplace=True)
-    df['admissionheight'].fillna(df['admissionheight'].mean(), inplace=True)
+    ## Check this out
+    # df['age'].fillna(df['age'].mean(), inplace=True)
+    # df['admissionweight'].fillna(df['admissionweight'].mean(), inplace=True)
+    # df['admissionheight'].fillna(df['admissionheight'].mean(), inplace=True)
 
     
     return df

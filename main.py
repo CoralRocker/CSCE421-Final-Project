@@ -9,7 +9,7 @@ import pandas as pd
 from sklearn.metrics import roc_auc_score
 
 
-from data import load_data, get_dataloaders, to_device
+from data import *
 from parser import parse
 from model import Model
 
@@ -22,13 +22,19 @@ def main():
 
     train_dl, val_dl, device = get_dataloaders(x, y)
 
-    lr = 0.01
-    epochs = 5
+    lr = 0.001
+    epochs = 100
 
     model = Model(lr, epochs)
     model = model.to(device)
 
     model.fit(train_dl, val_dl)
+
+    # test_x = load_data("test_x.csv")
+    # x_test = preprocess_x(test_x)
+
+    # probs = model.predict_proba(to_device(torch.tensor(x_test.to_numpy('float32')), get_default_device()))
+    # print(probs)
 
     # train_x, train_y, test_x, test_y = split_data(x, y)
 
