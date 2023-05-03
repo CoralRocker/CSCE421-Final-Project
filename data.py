@@ -154,7 +154,19 @@ def preprocess_x(df):
     df['patient row count'] = patientcounts # Each row holds how many times the patient was measured
 
     ### Create dummies for categorical columns
-    df = pd.get_dummies(df, columns= ['ethnicity', 'gender', 'celllabel', 'labmeasurenamesystem'])
+    df = pd.get_dummies(df, columns= ['ethnicity', 'gender', 'cellattributevalue', 'celllabel', 'labmeasurenamesystem'])
+
+    ### Max offset
+    max_offset = df.groupby('patientunitstayid')['offset'] \
+                    .max() \
+                    .reset_index(name='max_offset')
+    df = pd.merge(df, max_offset, on='patientunitstayid', how='left')
+
+    ### Median offset
+    median_offset = df.groupby('patientunitstayid')['offset'] \
+                    .median() \
+                    .reset_index(name='median_offset')
+    df = pd.merge(df, median_offset, on='patientunitstayid', how='left')
 
 
     ### Looking at relevant columns (not sure if offset is relevant, currently ignoring it)
@@ -214,12 +226,13 @@ def preprocess_x(df):
     # # df['nursingchartvalue'] = df['nursingchartvalue'].astype('float32')
     # 
     # df.drop('Unnamed: 0', axis=1, inplace=True)
-    df.drop(['offset', 'labresult'], axis=1, inplace=True)
-    df['cellattributevalue'] = df['cellattributevalue'].astype('float32')
+    df.drop(['offset'], axis=1, inplace=True)
+    # df['cellattributevalue'] = df['cellattributevalue'].astype('float32')
     # df['nursingchartvalue'] = df['nursingchartvalue'].astype('float32')
 
     # df.fillna(0, inplace=True)
 
+    # df.to_csv('data.csv', index=False)
     
     return df
     
