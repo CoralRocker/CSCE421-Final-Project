@@ -160,12 +160,12 @@ def get_dataloaders(x, y, batch_size=1, sample_size=1000, split=0.8, random_stat
     val_sampler = SubsetRandomSampler(val_idx)
     val_dl = DataLoader(dataset, batch_size, sampler=val_sampler)
 
-    print(f"Validation index length: {len(val_idx)}, Validation DL length: {len(val_dl)}")
-    print(f"Training index length: {len(train_idx)}, Training DL length: {len(train_dl)}")
+    # print(f"Validation index length: {len(val_idx)}, Validation DL length: {len(val_dl)}")
+    # print(f"Training index length: {len(train_idx)}, Training DL length: {len(train_dl)}")
 
-    print(f"Chosen device: {device}")
+    # print(f"Chosen device: {device}")
 
-    return DeviceDataLoader(train_dl, device), DeviceDataLoader(val_dl, device), device
+    return DeviceDataLoader(train_dl, device), DeviceDataLoader(val_dl, device), device, data, labels
 
 
 def split_data(x, y, split=0.8, random_state=42):
@@ -186,6 +186,27 @@ def split_data(x, y, split=0.8, random_state=42):
 
     return x.iloc[idx_train], y.iloc[idx_train], x.iloc[idx_test], y.iloc[idx_test]
 
+##
+## Get preprocessed data for testing
+##
+## Returns the data, and the ids for the data
+##
+## If a Y is given, it is sorted by ID with the test data and returned as an array of labels
+def preprocess_test(df, y = None):
+    p = preprocess_x(df)
+
+    ids = p['patientunitstayid'].to_numpy()
+    
+    if y is not None:
+        p.sort_values(by='patientunitstayid', inplace=True)
+        y.sort_values(by='patientunitstayid', inplace=True) 
+
+    p.drop('patientunitstayid', axis=1, inplace=True)
+
+    if y is not None:
+        return p, ids, y['hospitaldischargestatus'].to_numpy('float32')
+
+    return p, ids
 
 def preprocess_x(df):
 
@@ -211,22 +232,24 @@ def preprocess_x(df):
     # This drops all the duplicate patient stays past the first one
     df.drop_duplicates('patientunitstayid', inplace=True)
 
-    ### Change Ages from string to int
-    ## Set the age "> 89" to 90
-    df['age'].loc[df['age'] == '> 89'] = '90'
-    df['age'] = df['age'].astype('float32')
-
-    # df.drop('Unnamed: 0', axis=1, inplace=True)
-    df.drop(['offset', 'labresult'], axis=1, inplace=True)
-
     ## Set NaNs to mean of column
     # df['age'].fillna(df['age'].mean(), inplace=True)
     # df['admissionweight'].fillna(df['admissionweight'].mean(), inplace=True)
     # df['admissionheight'].fillna(df['admissionheight'].mean(), inplace=True)
     ## Set NaNs to 0
-    df['age'].fillna(0, inplace=True)
+    df['age'].fillna('0', inplace=True)
     df['admissionweight'].fillna(0, inplace=True)
     df['admissionheight'].fillna(0, inplace=True)
+
+    ### Change Ages from string to int
+    ## Set the age "> 89" to 90
+    agemask = df['age'].str.match(r'> 89')
+    df.loc[agemask, 'age'] = '90'
+    df['age'] = df['age'].astype('float32')
+
+    # df.drop('Unnamed: 0', axis=1, inplace=True)
+    df.drop(['offset', 'labresult'], axis=1, inplace=True)
+
 
     ## Ensure All One-Hot Encodings are accounted for
     encodings = ['ethnicity_African American', 'ethnicity_Asian', 'ethnicity_Caucasian',

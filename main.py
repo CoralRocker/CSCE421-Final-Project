@@ -9,6 +9,8 @@ import pandas as pd
 from sklearn.metrics import roc_auc_score
 import matplotlib.pyplot as plt
 
+from torch import optim
+
 
 from data import *
 from parser import parse
@@ -22,53 +24,83 @@ def main():
     y = load_data("train_y.csv")
     
     batch_size = 128
-    sample_size = 3000
+    sample_size = 1000
+    lr = 0.00005
+    momentum = 0.2
+    epochs = 100
+    plot_training = False
 
-    train_dl, val_dl, device = get_dataloaders(x, y, batch_size, sample_size)
-
-    lr = 0.0005
-    epochs = 50
-
-    model = Model(lr, epochs)
-    model = model.to(device)
-
-    t_loss, t_acc, v_loss, v_acc = model.fit(train_dl, val_dl)
-
-    if False:
-        plt.title("Loss Vs Epochs")
-        x_range = range(1, epochs+1)
-        plt.plot(x_range, t_loss, label="Training Loss")
-        plt.plot(x_range, v_loss, label="Validation Loss")
-
-        plt.legend()
-        plt.xlabel("Epoch")
-        plt.ylabel("Loss")
-
-        plt.show()
-
-        plt.title("Accuracy Vs Epochs") 
-        plt.plot(x_range, t_acc, label="Training Accuracy")
-        plt.plot(x_range, v_acc, label="Validation Accuracy")
-        plt.legend()
-        plt.xlabel("Epoch")
-        plt.ylabel("Loss")
-        plt.show()
-
-    test_x = load_data("test_x.csv")
-    x_test = preprocess_x(test_x)
-
-    ids = x_test['patientunitstayid'].to_numpy()
-    x_test.drop('patientunitstayid', axis=1, inplace=True)
+    num_models = 5
 
 
-    probs = model.predict_proba(to_device(torch.tensor(x_test.to_numpy('float32')), get_default_device()))
 
-    submission = list(zip(ids, probs))
+    train_dl, val_dl, device, data, labels = get_dataloaders(x, y, batch_size, sample_size)
 
-    with open("submission.csv", "w") as file:
-        file.write("patientunitstayid, hospitaldischargestatus\n")
-        for id, prob in submission:
-            file.write(f"{int(id)}, {prob :f}\n")
+    for lr in np.logspace(0, 0.000001, 10):
+
+        print(f"Learning Rate = {lr}")
+        losses = []
+        accuracies = []
+        rocaucs = []
+        
+        for i in range(num_models):
+            train_dl, val_dl, device, data, labels = get_dataloaders(x, y, batch_size, sample_size)
+            model = Model(lr, epochs)
+   
+            # model.optim_fn = optim.RMSprop(model.parameters(), model.lr, momentum=momentum)
+
+            model = model.to(device)
+
+            t_loss, t_acc, v_loss, v_acc = model.fit(train_dl, val_dl)
+
+            
+
+            dataset_x, _, dataset_y = preprocess_test(x, y)
+            
+            loss, accu, rocauc = model.getMetrics(to_device(torch.tensor(dataset_x.to_numpy('float32')), device),
+                                                  to_device(torch.tensor(dataset_y), device))
+            
+            losses.append(loss)
+            accuracies.append(accu)
+            rocaucs.append(rocauc)
+
+        print(f"Average Loss: {np.mean(losses)}")
+        print(f"Average Accuracy: {np.mean(accuracies)}")
+        print(f"Average ROC-AUC: {np.mean(rocaucs)}")
+        print("")
+
+        if plot_training:
+            plt.title(f"Loss Vs Epochs, Momentum = {momentum}")
+            x_range = range(1, epochs+1)
+            plt.plot(x_range, t_loss, label="Training Loss")
+            plt.plot(x_range, v_loss, label="Validation Loss")
+
+            plt.legend()
+            plt.xlabel("Epoch")
+            plt.ylabel("Loss")
+
+            plt.show()
+
+            plt.title(f"Accuracy Vs Epochs, Momentum = {momentum}") 
+            plt.plot(x_range, t_acc, label="Training Accuracy")
+            plt.plot(x_range, v_acc, label="Validation Accuracy")
+            plt.legend()
+            plt.xlabel("Epoch")
+            plt.ylabel("Loss")
+            plt.show()
+
+    # test_x = load_data("test_x.csv")
+
+    # x_test, ids = preprocess_test(test_x)
+
+    # probs = model.predict_proba(to_device(torch.tensor(x_test.to_numpy('float32')), device))
+
+    # submission = list(zip(ids, probs))
+
+    # with open("submission.csv", "w") as file:
+    #     file.write("patientunitstayid,hospitaldischargestatus \r\n")
+    #     for id, prob in submission:
+    #         file.write(f"{int(id)},{prob :f}\r\n")
 
     # train_x, train_y, test_x, test_y = split_data(x, y)
 
