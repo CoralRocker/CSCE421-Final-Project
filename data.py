@@ -46,8 +46,12 @@ class DeviceDataLoader():
 def load_data(x_path):
     return pd.read_csv(x_path, low_memory=False)
 
+###
+### Get a sample of x and y where there is an equal amount of both deaths and lives
+###
+### This uses sampling with replacement from a dataframe of dead and live people 
+### To generate a new dataframe with an equal amount of both.
 def getOversampledDataset(x, y, n):
-
     # Labels for Dead And Alive people
     dead = y.loc[y['hospitaldischargestatus'] == 1]
     live = y.loc[y['hospitaldischargestatus'] == 0]
@@ -114,27 +118,28 @@ class CustomDataset(torch.utils.data.Dataset):
 ###
 ### x is the non-preprocessed data
 ### y is the non-preprocessed labels
+### batch_size is the batch size of the dataset
+### sample_size is the number of datapoints to load. An oversampling method is used
 ### split is the fraction of the data to use for training
 ### random_state is the seed for the rng
-def get_dataloaders(x, y, split=0.8, random_state=42):
+def get_dataloaders(x, y, batch_size=1, sample_size=1000, split=0.8, random_state=42):
 
     # Get default device
     device = get_default_device()
-
-    batch_size = 128
 
     p = preprocess_x(x) # Get the preprocessed X data
 
     ##
     ## Oversampled Data Process
     ##
-    data, labels = getOversampledDataset(p, y, 2000)
+    data, labels = getOversampledDataset(p, y, sample_size)
     data.drop('patientunitstayid', axis=1, inplace=True)
 
     dataset = CustomDataset(data.to_numpy('float32'),
                             labels['hospitaldischargestatus'].to_numpy(),
                             torch.tensor)
 
+    ## No sampling data
     # # Sort by patient ID
     # p.sort_values(by='patientunitstayid', inplace=True)
     # p.drop('patientunitstayid', axis=1, inplace=True)
@@ -147,7 +152,7 @@ def get_dataloaders(x, y, split=0.8, random_state=42):
     #                         y['hospitaldischargestatus'].to_numpy(),
     #                         torch.tensor)
 
-    val_idx, train_idx = get_data_indeces(p.shape[0], split, random_state)
+    val_idx, train_idx = get_data_indeces(sample_size, split, random_state)
 
     train_sampler = SubsetRandomSampler(train_idx)
     train_dl = DataLoader(dataset, batch_size, sampler=train_sampler)
@@ -214,10 +219,23 @@ def preprocess_x(df):
     # df.drop('Unnamed: 0', axis=1, inplace=True)
     df.drop(['offset', 'labresult'], axis=1, inplace=True)
 
-    ## Check this out
+    ## Set NaNs to mean of column
     # df['age'].fillna(df['age'].mean(), inplace=True)
     # df['admissionweight'].fillna(df['admissionweight'].mean(), inplace=True)
     # df['admissionheight'].fillna(df['admissionheight'].mean(), inplace=True)
+    ## Set NaNs to 0
+    df['age'].fillna(0, inplace=True)
+    df['admissionweight'].fillna(0, inplace=True)
+    df['admissionheight'].fillna(0, inplace=True)
+
+    ## Ensure All One-Hot Encodings are accounted for
+    encodings = ['ethnicity_African American', 'ethnicity_Asian', 'ethnicity_Caucasian',
+                 'ethnicity_Hispanic', 'ethnicity_Native American',
+                 'ethnicity_Other/Unknown', 'gender_Female', 'gender_Male']
+
+    for encoding in encodings:
+        if encoding not in list(df.columns):
+            df.insert(0, encoding, 0)
 
     
     return df

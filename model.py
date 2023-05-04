@@ -19,8 +19,8 @@ class Model(Module):
         ########################################################################
 
         self.layer = Sequential(
-                Linear(11, 11),
-                ReLU(),
+                # Linear(11, 11),
+                # ReLU(),
                 Linear(11, 1),
                 Sigmoid()
                 )
@@ -37,7 +37,12 @@ class Model(Module):
         ########################################################################
 
         self.optim = optim.Adam(self.parameters(), lr=self.lr)
-        self.loss = MSELoss() 
+        self.loss = BCELoss() 
+
+        train_accuracies = []
+        train_losses = []
+        validation_accuracies = []
+        validation_losses = []
 
 
         for epoch in range(self.epochs):
@@ -47,7 +52,7 @@ class Model(Module):
             total = 0
             correct = 0
 
-            train_losses = []
+            tr_losses = []
             val_losses = []
             train_loss = 0
             val_loss = 0
@@ -57,19 +62,24 @@ class Model(Module):
 
                 self.optim.zero_grad()
 
-                loss = self.loss(pred, y.float())
+                loss = self.loss(pred.reshape(-1), y.float())
 
                 loss.backward()
 
                 self.optim.step()
                 
-                train_losses.append(loss.item())
+                tr_losses.append(loss.item())
                 # _, classes = torch.max(pred, dim=1)
                 correct += torch.sum(torch.round(pred).squeeze() == y).item()
                 total += pred.size(0)
 
+                # if epoch == self.epochs-1 and i == 0:
+                #     print(pred.reshape(-1))
+
             train_accuracy = correct / total
-            train_loss = np.mean(train_losses)
+            train_loss = np.mean(tr_losses)
+            train_losses.append(train_loss)
+            train_accuracies.append(train_accuracy)
 
             total = 0
             correct = 0
@@ -77,7 +87,7 @@ class Model(Module):
             for (x, y) in val_dl:
                 pred = self.forward(x)
 
-                loss = self.loss(pred, y.float())
+                loss = self.loss(pred.reshape(-1), y.float())
                 val_losses.append(loss.item())
 
                 self.optim.step()
@@ -89,6 +99,8 @@ class Model(Module):
 
             val_loss = np.mean(val_losses)
             val_accuracy = correct / total
+            validation_losses.append(val_loss)
+            validation_accuracies.append(val_accuracy)
 
 
                   
@@ -99,12 +111,16 @@ class Model(Module):
             else:
                 print("\rEpoch {}/{}, train_loss: {:.4f}, train_accuracy: {:.4f}"
                           .format(epoch+1, self.epochs, train_loss, train_accuracy), end='')
-        pass
+
+        return train_losses, train_accuracies, validation_losses, validation_accuracies
             
 
 
 
     def predict_proba(self, X):
+        probs = []
         for x in X:
-            print(self.forward(x))
+            probs.append(self.forward(x).item())
+
+        return probs
 
