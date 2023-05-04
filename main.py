@@ -28,49 +28,52 @@ def main():
     lr = 0.00005
     momentum = 0.2
     epochs = 100
-    plot_training = False
+    plot_training = True
 
     num_models = 5
 
+    for lr in np.logspace(-5, -10, 6):
 
-
-    train_dl, val_dl, device, data, labels = get_dataloaders(x, y, batch_size, sample_size)
-
-    for lr in np.logspace(0, 0.000001, 10):
-
-        print(f"Learning Rate = {lr}")
+        print(f"Learning Rate = {lr : .10f}")
         losses = []
         accuracies = []
+        f1_scores = []
         rocaucs = []
         
         for i in range(num_models):
-            train_dl, val_dl, device, data, labels = get_dataloaders(x, y, batch_size, sample_size)
+            print(f"Training model {i+1 : 2d}", end="")
+            train_dl, val_dl, device, _, _ = get_dataloaders(x, y, batch_size, sample_size)
             model = Model(lr, epochs)
    
             # model.optim_fn = optim.RMSprop(model.parameters(), model.lr, momentum=momentum)
 
             model = model.to(device)
 
-            t_loss, t_acc, v_loss, v_acc = model.fit(train_dl, val_dl)
+            t_loss, t_acc, t_f1, v_loss, v_acc, v_f1, epoch = model.fit(train_dl, val_dl)
 
+            print(f"  Model ran for {epoch} epochs")
             
 
             dataset_x, _, dataset_y = preprocess_test(x, y)
             
-            loss, accu, rocauc = model.getMetrics(to_device(torch.tensor(dataset_x.to_numpy('float32')), device),
+            loss, accu, rocauc, f1_score = model.getMetrics(to_device(torch.tensor(dataset_x.to_numpy('float32')), device),
                                                   to_device(torch.tensor(dataset_y), device))
             
             losses.append(loss)
             accuracies.append(accu)
+            f1_scores.append(f1_score)
             rocaucs.append(rocauc)
+
+        print("")
 
         print(f"Average Loss: {np.mean(losses)}")
         print(f"Average Accuracy: {np.mean(accuracies)}")
         print(f"Average ROC-AUC: {np.mean(rocaucs)}")
+        print(f"Average F1 Score: {np.mean(f1_scores)}")
         print("")
 
         if plot_training:
-            plt.title(f"Loss Vs Epochs, Momentum = {momentum}")
+            plt.title(f"Loss Vs Epochs, LR = {lr}")
             x_range = range(1, epochs+1)
             plt.plot(x_range, t_loss, label="Training Loss")
             plt.plot(x_range, v_loss, label="Validation Loss")
@@ -81,12 +84,20 @@ def main():
 
             plt.show()
 
-            plt.title(f"Accuracy Vs Epochs, Momentum = {momentum}") 
+            plt.title(f"Accuracy Vs Epochs, LR = {lr}") 
             plt.plot(x_range, t_acc, label="Training Accuracy")
             plt.plot(x_range, v_acc, label="Validation Accuracy")
             plt.legend()
             plt.xlabel("Epoch")
-            plt.ylabel("Loss")
+            plt.ylabel("Accuracy")
+            plt.show()
+
+            plt.title(f"F1 Score Vs Epochs, LR = {lr}")
+            plt.plot(x_range, t_f1, label="Training F1")
+            plt.plot(x_range, v_f1, label="Validation F1")
+            plt.legend()
+            plt.xlabel("Epoch")
+            plt.ylabel("F1 Score")
             plt.show()
 
     # test_x = load_data("test_x.csv")
