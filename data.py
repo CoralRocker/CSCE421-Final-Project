@@ -169,6 +169,20 @@ def preprocess_x(df):
     df = pd.merge(df, median_offset, on='patientunitstayid', how='left')
 
 
+
+    cell_cols = df[['patientunitstayid', 'celllabel_Capillary Refill']]
+    cell_cols = cell_cols.groupby(['patientunitstayid', 'celllabel_Capillary Refill']) \
+                            .mean() \
+                            .reset_index()
+    cell_cols = cell_cols.pivot(index='patientunitstayid', columns='celllabel_Capillary Refill', values='celllabel_Capillary Refill')
+
+    ### Merge back into df, drop og columns
+    df = pd.merge(df, cell_cols, on='patientunitstayid', how='left')
+    df = df.drop(columns=[0, 'celllabel_Capillary Refill'])
+
+
+
+
     ### Looking at relevant columns (not sure if offset is relevant, currently ignoring it)
     nursing_cols = df[['patientunitstayid', 'nursingchartcelltypevalname', 'nursingchartvalue']]
     ### Some values are "Unable to score due to medication" this just drops those from the table (could probably be dealt with better)
@@ -232,7 +246,7 @@ def preprocess_x(df):
 
     # df.fillna(0, inplace=True)
 
-    # df.to_csv('data.csv', index=False)
+    df.to_csv('data.csv', index=False)
     
     return df
     
