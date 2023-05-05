@@ -122,7 +122,7 @@ class CustomDataset(torch.utils.data.Dataset):
 ### sample_size is the number of datapoints to load. An oversampling method is used
 ### split is the fraction of the data to use for training
 ### random_state is the seed for the rng
-def get_dataloaders(x, y, batch_size=1, sample_size=1000, split=0.8, random_state=42):
+def get_dataloaders(x, y, batch_size=1, sample_size=1000, split=0.8, random_state=42, oversample=False):
 
     # Get default device
     device = get_default_device()
@@ -134,25 +134,25 @@ def get_dataloaders(x, y, batch_size=1, sample_size=1000, split=0.8, random_stat
     ##
     ## Oversampled Data Process
     ##
-    data, labels = getOversampledDataset(p, y, sample_size)
-    data.drop('patientunitstayid', axis=1, inplace=True)
+    if oversample:
+        data, labels = getOversampledDataset(p, y, sample_size)
+        data.drop('patientunitstayid', axis=1, inplace=True)
 
-    dataset = CustomDataset(data.to_numpy('float32'),
-                            labels['hospitaldischargestatus'].to_numpy(),
-                            torch.tensor)
+        dataset = CustomDataset(data.to_numpy('float32'),
+                                labels['hospitaldischargestatus'].to_numpy(),
+                                torch.tensor)
+    else:
+        # Sort by patient ID
+        p.sort_values(by='patientunitstayid', inplace=True)
+        p.drop('patientunitstayid', axis=1, inplace=True)
 
-    ## No sampling data
-    # Sort by patient ID
-    # p.sort_values(by='patientunitstayid', inplace=True)
-    # p.drop('patientunitstayid', axis=1, inplace=True)
+        # Sorty Y by patient ID
+        y.sort_values(by='patientunitstayid', inplace=True)
 
-    # # Sorty Y by patient ID
-    # y.sort_values(by='patientunitstayid', inplace=True)
-
-    # # Create the dataset of tensors and labels
-    # dataset = CustomDataset(p.to_numpy('float32'),
-    #                         y['hospitaldischargestatus'].to_numpy(),
-    #                         torch.tensor)
+        # Create the dataset of tensors and labels
+        dataset = CustomDataset(p.to_numpy('float32'),
+                                y['hospitaldischargestatus'].to_numpy(),
+                                torch.tensor)
 
     val_idx, train_idx = get_data_indeces(sample_size, split, random_state)
 
@@ -373,7 +373,7 @@ def preprocess_x(df):
         if encoding not in list(df.columns):
             df.insert(0, encoding, 0)
 
-    df.to_csv('data.csv', index=False)
+    # df.to_csv('data.csv', index=False)
     
     return df
     

@@ -114,6 +114,8 @@ def main():
             plt.savefig(f"Loss_V_Epochs_lr{lr}_Epochs_{epochs}.png")
             if show_figs:
                 plt.show()
+            else:
+                plt.clf()
 
             plt.title(f"Accuracy Vs Epochs, LR = {lr}, Epochs = {epochs}") 
             plt.plot(x_range, acces[i][0], label="Training Accuracy")
@@ -124,6 +126,8 @@ def main():
             plt.savefig(f"BalancedAccuracy_V_Epochs_lr{lr}_Epochs_{epochs}.png")
             if show_figs:
                 plt.show()
+            else:
+                plt.clf()
 
             plt.title(f"F1 Score Vs Epochs, LR = {lr}, Epochs = {epochs}")
             plt.plot(x_range, f1es[i][0], label="Training F1")
@@ -134,6 +138,8 @@ def main():
             plt.savefig(f"F1Score_V_Epochs_lr{lr}_Epochs_{epochs}.png")
             if show_figs:
                 plt.show()
+            else:
+                plt.clf()
             
             plt.title(f"ROC-AUC Vs Epochs, LR = {lr}, Epochs = {epochs}")
             plt.plot(x_range, roces[i][0], label="Training ROC-AUC")
@@ -144,6 +150,8 @@ def main():
             plt.savefig(f"ROCAUC_V_Epochs_lr{lr}_Epochs_{epochs}.png")
             if show_figs:
                 plt.show()
+            else:
+                plt.clf()
 
 
 
