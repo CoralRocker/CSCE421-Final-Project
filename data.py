@@ -379,13 +379,19 @@ def preprocess_x(df):
 
     ### Change Ages from string to int
     ## Set the age "> 89" to 90
+
+    agemask = df['age'].str.fullmatch(r'> 89') & df['age'].notna()
+    df.loc[agemask, 'age'] = '90'
+
     df.insert(0, 'Has Age', 0)
     df.loc[df['age'].notna(), 'Has Age'] = 1
-    df['age'].fillna('0', inplace=True)
 
-    agemask = df['age'].str.fullmatch(r'> 89')
-    df.loc[agemask, 'age'] = '90'
     df['age'] = df['age'].astype('float32')
+
+    df['age'] = scaler.fit_transform(df['age'].values.reshape(-1, 1))
+
+    df['age'].fillna(0, inplace=True)
+
 
     # df.drop('Unnamed: 0', axis=1, inplace=True)
     df.drop(['offset'], axis=1, inplace=True)
