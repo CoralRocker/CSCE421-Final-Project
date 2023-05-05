@@ -25,79 +25,128 @@ def main():
     
     batch_size = 128
     sample_size = 1000
-    lr = 0.00005
+    lr = 1e-5
     momentum = 0.2
-    epochs = 50
-    plot_training = False
+    epochs = 400
+    plot_training = True
+    show_figs = False
     num_models = 5
 
-    for lr in np.logspace(-5, -10, 6):
+    weights = [0.01, 0]
+    epochs_arr = [10, 20, 50, 100, 150, 200, 500, 1000]
 
-        print(f"Learning Rate = {lr : .10f}")
-        losses = []
-        accuracies = []
-        f1_scores = []
-        rocaucs = []
+    losses = []
+    acces = []
+    f1es = []
+    roces = []
+    
+
+    for epochs in epochs_arr:
+
+        print(f"Learning Rate = {lr}, Epochs = {epochs}")
+        dataset_losses = []
+        dataset_accuracies = []
+        dataset_f1_scores = []
+        dataset_rocaucs = []
+
+        train_loss = []
+        train_acc = []
+        train_f1 = []
+        train_roc = []
+
+        val_loss = []
+        val_acc = []
+        val_f1 = []
+        val_roc = []
         
         for i in range(num_models):
-            print(f"Training model {i+1 : 2d}", end="")
+            print(f"\rTraining model {i+1 : 2d}", end='')
             train_dl, val_dl, device, _, _ = get_dataloaders(x, y, batch_size, sample_size)
             model = Model(lr, epochs)
    
-            # model.optim_fn = optim.RMSprop(model.parameters(), model.lr, momentum=momentum)
-
             model = model.to(device)
 
-            t_loss, t_acc, t_f1, v_loss, v_acc, v_f1, epoch = model.fit(train_dl, val_dl)
+            t_loss, t_acc, t_f1, t_roc, v_loss, v_acc, v_f1, v_roc, epoch = model.fit(train_dl, val_dl)
 
-            print(f"  Model ran for {epoch} epochs")
-            
+            train_loss.append(t_loss)
+            train_acc.append(t_acc)
+            train_f1.append(t_f1)
+            train_roc.append(t_roc)
+
+            val_loss.append(v_loss)
+            val_acc.append(v_acc)
+            val_f1.append(v_f1)
+            val_roc.append(v_roc) 
 
             dataset_x, _, dataset_y = preprocess_test(x, y)
             
             loss, accu, rocauc, f1_score = model.getMetrics(to_device(torch.tensor(dataset_x.to_numpy('float32')), device),
                                                   to_device(torch.tensor(dataset_y), device))
             
-            losses.append(loss)
-            accuracies.append(accu)
-            f1_scores.append(f1_score)
-            rocaucs.append(rocauc)
+            dataset_losses.append(loss)
+            dataset_accuracies.append(accu)
+            dataset_f1_scores.append(f1_score)
+            dataset_rocaucs.append(rocauc)
+        print("")
+        
+        print(f"Average Loss: {np.mean(dataset_losses)}")
+        print(f"Average Accuracy: {np.mean(dataset_accuracies)}")
+        print(f"Average ROC-AUC: {np.mean(dataset_rocaucs)}")
+        print(f"Average F1 Score: {np.mean(dataset_f1_scores)}")
 
+        losses.append([np.mean(train_loss, axis=0), np.mean(val_loss, axis=0)])
+        acces.append([np.mean(train_acc, axis=0), np.mean(val_acc, axis=0)])
+        f1es.append([np.mean(train_f1, axis=0), np.mean(val_f1, axis=0)])
+        roces.append([np.mean(train_roc, axis=0), np.mean(val_roc, axis=0)])
+        print("Done Training Models")
         print("")
 
-        print(f"Average Loss: {np.mean(losses)}")
-        print(f"Average Accuracy: {np.mean(accuracies)}")
-        print(f"Average ROC-AUC: {np.mean(rocaucs)}")
-        print(f"Average F1 Score: {np.mean(f1_scores)}")
-        print("")
+    if plot_training:
+        for i, epochs in enumerate(epochs_arr): 
 
-        if plot_training:
-            plt.title(f"Loss Vs Epochs, LR = {lr}")
+            plt.title(f"Loss Vs Epochs, LR = {lr}, Epochs = {epochs}")
             x_range = range(1, epochs+1)
-            plt.plot(x_range, t_loss, label="Training Loss")
-            plt.plot(x_range, v_loss, label="Validation Loss")
-
+            plt.plot(x_range, losses[i][0], label="Training Loss")
+            plt.plot(x_range, losses[i][1], label="Validation Loss")
             plt.legend()
             plt.xlabel("Epoch")
             plt.ylabel("Loss")
+            plt.savefig(f"Loss_V_Epochs_lr{lr}_Epochs_{epochs}.png")
+            if show_figs:
+                plt.show()
 
-            plt.show()
-
-            plt.title(f"Accuracy Vs Epochs, LR = {lr}") 
-            plt.plot(x_range, t_acc, label="Training Accuracy")
-            plt.plot(x_range, v_acc, label="Validation Accuracy")
+            plt.title(f"Accuracy Vs Epochs, LR = {lr}, Epochs = {epochs}") 
+            plt.plot(x_range, acces[i][0], label="Training Accuracy")
+            plt.plot(x_range, acces[i][1], label="Validation Accuracy")
             plt.legend()
             plt.xlabel("Epoch")
             plt.ylabel("Accuracy")
-            plt.show()
+            plt.savefig(f"BalancedAccuracy_V_Epochs_lr{lr}_Epochs_{epochs}.png")
+            if show_figs:
+                plt.show()
 
-            plt.title(f"F1 Score Vs Epochs, LR = {lr}")
-            plt.plot(x_range, t_f1, label="Training F1")
-            plt.plot(x_range, v_f1, label="Validation F1")
+            plt.title(f"F1 Score Vs Epochs, LR = {lr}, Epochs = {epochs}")
+            plt.plot(x_range, f1es[i][0], label="Training F1")
+            plt.plot(x_range, f1es[i][1], label="Validation F1")
             plt.legend()
             plt.xlabel("Epoch")
             plt.ylabel("F1 Score")
-            plt.show()
+            plt.savefig(f"F1Score_V_Epochs_lr{lr}_Epochs_{epochs}.png")
+            if show_figs:
+                plt.show()
+            
+            plt.title(f"ROC-AUC Vs Epochs, LR = {lr}, Epochs = {epochs}")
+            plt.plot(x_range, roces[i][0], label="Training ROC-AUC")
+            plt.plot(x_range, roces[i][1], label="Validation ROC-AUC")
+            plt.legend()
+            plt.xlabel("Epoch")
+            plt.ylabel("ROC-AUC")
+            plt.savefig(f"ROCAUC_V_Epochs_lr{lr}_Epochs_{epochs}.png")
+            if show_figs:
+                plt.show()
+
+
+
 
     # test_x = load_data("test_x.csv")
 

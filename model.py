@@ -4,7 +4,7 @@ import torch
 import numpy as np
 import pandas as pd
 
-from sklearn.metrics import precision_recall_curve, roc_auc_score, f1_score
+from sklearn.metrics import precision_recall_curve, roc_auc_score, f1_score, balanced_accuracy_score
 import matplotlib.pyplot as plt
 
 from data import get_default_device, to_device
@@ -49,21 +49,21 @@ class Model(Module):
         ########################################################################
 
         self.layer = Sequential(
-                Linear(11, 30),
+                Linear(49, 75),
                 Tanh(),
-                Linear(30, 15),
+                Linear(75, 75),
                 ReLU(),
-                Linear(15, 2),
-                Softmax(1),
-                # Linear(15, 1),
-                # Sigmoid(),
+                # Linear(75, 2),
+                # Softmax(1),
+                Linear(75, 1),
+                Sigmoid(),
                 )
 
 
         
         self.optim_fn = optim.Adam(self.parameters(), lr=self.lr)
-        class_weights = to_device(torch.Tensor([1848 / 2016, 168 / 2016]), get_default_device())
-        self.loss_fn = CrossEntropyLoss(class_weights) 
+        # class_weights = to_device(torch.Tensor([1848 / 2016, 168 / 2016]), get_default_device())
+        self.loss_fn = BCELoss() #CrossEntropyLoss(class_weights) 
 
     def forward(self, X):
         return self.layer(X)
@@ -77,9 +77,11 @@ class Model(Module):
         train_accuracies = []
         train_losses = []
         train_f1 = []
+        train_rocauc = []
         validation_accuracies = []
         validation_losses = []
         validation_f1 = []
+        validation_rocauc = []
        
         epoch = 0
         
@@ -87,8 +89,8 @@ class Model(Module):
             
             earlystop = EarlyTrainingStop(1, 0.005)
 
-            val_accuracy = None
-            train_accuracy = None
+            val_accuracy = []
+            train_accuracy = []
             total = 0
             correct = 0
 
@@ -99,37 +101,46 @@ class Model(Module):
             train_loss = 0
             val_loss = 0
 
+            rocaucs = []
+
             for i, (x, y) in enumerate(train_dl):
+                y = y.view(-1, 1)
                 pred = self(x)
 
                 self.optim_fn.zero_grad()
 
-                loss = self.loss_fn(pred, y)
+                loss = self.loss_fn(pred, y.float())
 
                 loss.backward()
 
                 self.optim_fn.step()
                 
                 tr_losses.append(loss.item())
-                _, classes = torch.max(pred, dim=1)
-                correct += torch.sum(classes == y).item()
+                # _, classes = torch.max(pred, dim=1)
+                # correct += torch.sum(classes == y).item()
+                classes = torch.round(pred)
                 
-                #correct += torch.sum(torch.round(pred).squeeze() == y).item()
+                correct += torch.sum(torch.round(pred).squeeze() == y).item()
                 total += pred.size(0)
                 
                 tr_f1.append(f1_score(y.cpu().detach(), classes.cpu().detach(), zero_division=0))
 
+                train_accuracy.append(balanced_accuracy_score(y.cpu().detach(), classes.cpu().detach()))
+
+                rocaucs.append(roc_auc_score(y.cpu().detach(), pred.squeeze().cpu().detach()))
+
                 # if epoch == self.epochs-1 and i == 0:
-                # #     prec, rec, thresh = precision_recall_curve(y.cpu().detach(), pred.squeeze().cpu().detach())
-                # #     plt.title("Precision Recall Curve")
-                # #     plt.plot(rec, prec)
-                # #     plt.xlabel("Recall")
-                # #     plt.ylabel("Precision")
-                # #     plt.show()
+                #     prec, rec, thresh = precision_recall_curve(y.cpu().detach(), pred.squeeze().cpu().detach())
+                #     plt.title("Precision Recall Curve")
+                #     plt.plot(rec, prec)
+                #     plt.xlabel("Recall")
+                #     plt.ylabel("Precision")
+                #     plt.show()
                 #     print(f"AUC-ROC Score: {roc_auc_score(y.cpu().detach(), pred.squeeze().cpu().detach()) :f}")
 
 
-            train_accuracy = correct / total
+            train_rocauc.append(np.mean(rocaucs))
+            train_accuracy = np.mean(train_accuracy)
             train_loss = np.mean(tr_losses)
             train_losses.append(train_loss)
             train_accuracies.append(train_accuracy)
@@ -137,46 +148,55 @@ class Model(Module):
 
             total = 0
             correct = 0
+            rocaucs = []
 
             for (x, y) in val_dl:
+                y = y.view(-1, 1)
                 pred = self.forward(x)
 
-                loss = self.loss_fn(pred, y)
+                loss = self.loss_fn(pred, y.float())
                 val_losses.append(loss.item())
 
                 self.optim_fn.step()
 
-                _, classes = torch.max(pred, dim=1)
-
+                #_, classes = torch.max(pred, dim=1)
+                classes = torch.round(pred).squeeze()
                 val_f1.append(f1_score(y.cpu().detach(), classes.cpu().detach(), zero_division=0))
-                correct += torch.sum(classes == y).item()
-                # correct += torch.sum(torch.round(pred).squeeze() == y).item()
+                val_accuracy.append(balanced_accuracy_score(y.cpu().detach(), classes.cpu().detach()))
+
+                # val_f1.append(f1_score(y.cpu().detach(), classes.cpu().detach(), zero_division=0))
+                #correct += torch.sum(classes == y).item()
+                correct += torch.sum(torch.round(pred).squeeze() == y).item()
                 total += x.size(0)
+                
+                rocaucs.append(roc_auc_score(y.cpu().detach(), pred.squeeze().cpu().detach()))
 
 
             val_loss = np.mean(val_losses)
-            val_accuracy = correct / total
+            val_accuracy = np.mean(val_accuracy)
             validation_losses.append(val_loss)
             validation_accuracies.append(val_accuracy)
             validation_f1.append(np.mean(val_f1))
+            validation_rocauc.append(np.mean(rocaucs))
 
             if earlystop(train_loss, val_loss):
                 print(f"Stopping early at epoch {epoch+1}")
                 break;
 
-            # if (epoch + 1) % 5 == 0:  
-            #     # Print progress
-            #     if val_accuracy is not None:
-            #         print("Epoch {}/{}, train_loss: {:.4f}, val_loss: {:.4f}, train_accuracy: {:.4f}, val_accuracy: {:.4f}"
-            #                   .format(epoch+1, self.epochs, train_loss, val_loss, train_accuracy, val_accuracy))
-            #     else:
-            #         print("Epoch {}/{}, train_loss: {:.4f}, train_accuracy: {:.4f}"
-            #                   .format(epoch+1, self.epochs, train_loss, train_accuracy))
+            if (epoch + 1) % 20 == -1:  
+                # Print progress
+                if val_accuracy is not None:
+                    print("Epoch {}/{}, train_loss: {:.4f}, val_loss: {:.4f}, train_accuracy: {:.4f}, val_accuracy: {:.4f}"
+                              .format(epoch+1, self.epochs, train_loss, val_loss, train_accuracy, val_accuracy))
+                else:
+                    print("Epoch {}/{}, train_loss: {:.4f}, train_accuracy: {:.4f}"
+                              .format(epoch+1, self.epochs, train_loss, train_accuracy))
 
-        return train_losses, train_accuracies, train_f1, validation_losses, validation_accuracies, validation_f1, epoch+1
+        return train_losses, train_accuracies, train_f1, train_rocauc, validation_losses, validation_accuracies, validation_f1, validation_rocauc, epoch+1
             
 
     def getMetrics(self, X, Y):
+        Y = Y.view(-1, 1)
 
         total = 0
         correct = 0
@@ -184,20 +204,21 @@ class Model(Module):
 
         pred = self.forward(X)
         
-        loss = self.loss_fn(pred, Y.long())
+        loss = self.loss_fn(pred, Y.float())
 
-        _, classes = torch.max(pred, dim=1)
-        correct += torch.sum(classes == Y).item()
-        # correct += torch.sum(torch.round(pred).squeeze() == Y)
+        #_, classes = torch.max(pred, dim=1)
+        #correct += torch.sum(classes == Y).item()
+        correct += torch.sum(torch.round(pred).squeeze() == Y)
         total += X.shape[0]
 
-        f1 = f1_score(Y.cpu().detach(), classes.cpu().detach(), average='macro')
+        f1 = f1_score(Y.cpu().detach(), torch.round(pred).squeeze().cpu().detach())
+        #f1 = f1_score(Y.cpu().detach(), classes.cpu().detach(), average='macro')
 
-        # print(Y.cpu().detach())
-        cpupred = pred.cpu().detach()
-        
-        rocauc = roc_auc_score(Y.cpu().detach(), torch.maximum(cpupred[:, 0], cpupred[:, 1])) 
-        accuracy = correct / total
+        #cpupred = pred.cpu().detach()
+        # rocauc = roc_auc_score(Y.cpu().detach(), torch.maximum(cpupred[:, 0], cpupred[:, 1])) 
+
+        rocauc = roc_auc_score(Y.cpu().detach(), torch.round(pred).cpu().detach())
+        accuracy = balanced_accuracy_score(Y.cpu().detach(), torch.round(pred).cpu().detach())
 
         return loss.item(), accuracy, rocauc, f1
         
