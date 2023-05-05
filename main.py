@@ -34,7 +34,7 @@ def main():
     num_models = 5
 
     epochs_arr = [75, 100, 125, 150]
-    sample_size_arr = [0]
+    sample_size_arr = [2000, 4000, 6000]
 
     losses = []
     acces = []
