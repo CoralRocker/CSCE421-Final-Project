@@ -127,7 +127,12 @@ class Model(Module):
 
                 train_accuracy.append(balanced_accuracy_score(y.cpu().detach(), classes.cpu().detach()))
 
-                rocaucs.append(roc_auc_score(y.cpu().detach(), pred.squeeze().cpu().detach()))
+                try:
+                    rocauc = roc_auc_score(y.cpu().detach(), pred.squeeze().cpu().detach())
+                except ValueError:
+                    rocauc = 0
+
+                rocaucs.append(rocauc)
 
                 # if epoch == self.epochs-1 and i == 0:
                 #     prec, rec, thresh = precision_recall_curve(y.cpu().detach(), pred.squeeze().cpu().detach())
@@ -169,7 +174,12 @@ class Model(Module):
                 correct += torch.sum(torch.round(pred).squeeze() == y).item()
                 total += x.size(0)
                 
-                rocaucs.append(roc_auc_score(y.cpu().detach(), pred.squeeze().cpu().detach()))
+                try:
+                    rocauc = roc_auc_score(y.cpu().detach(), pred.squeeze().cpu().detach())
+                except ValueError:
+                    rocauc = 0
+
+                rocaucs.append(rocauc)
 
 
             val_loss = np.mean(val_losses)

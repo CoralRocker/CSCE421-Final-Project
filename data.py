@@ -122,7 +122,7 @@ class CustomDataset(torch.utils.data.Dataset):
 ### sample_size is the number of datapoints to load. An oversampling method is used
 ### split is the fraction of the data to use for training
 ### random_state is the seed for the rng
-def get_dataloaders(x, y, batch_size=1, sample_size=1000, split=0.8, random_state=42, oversample=False):
+def get_dataloaders(x, y, batch_size=1, sample_size=0, split=0.8, random_state=42):
 
     # Get default device
     device = get_default_device()
@@ -131,10 +131,11 @@ def get_dataloaders(x, y, batch_size=1, sample_size=1000, split=0.8, random_stat
     
     data = None
     labels = None
+    dataset = None
     ##
     ## Oversampled Data Process
     ##
-    if oversample:
+    if sample_size > 0:
         data, labels = getOversampledDataset(p, y, sample_size)
         data.drop('patientunitstayid', axis=1, inplace=True)
 
@@ -153,6 +154,8 @@ def get_dataloaders(x, y, batch_size=1, sample_size=1000, split=0.8, random_stat
         dataset = CustomDataset(p.to_numpy('float32'),
                                 y['hospitaldischargestatus'].to_numpy(),
                                 torch.tensor)
+    if sample_size == 0:
+        sample_size = p.shape[0]
 
     val_idx, train_idx = get_data_indeces(sample_size, split, random_state)
 
