@@ -7,6 +7,8 @@ from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
 from torchvision.transforms import Compose, ToTensor, Normalize
 
+from sklearn.preprocessing import StandardScaler
+
 ##
 ## The Following Code is Taken from Homework 6
 ## All credit goes to Dr. Mortazavi
@@ -214,11 +216,15 @@ def preprocess_test(df, y = None):
     return p, ids
 
 def preprocess_x(df):
+    scaler = StandardScaler() 
+
+    df['unitvisitnumber'] = scaler.fit_transform(df['unitvisitnumber'].values.reshape(-1, 1))
 
     ### Aggregate the all the rows of a certain patient
     patientcounts = df.groupby('patientunitstayid')[['patientunitstayid']]\
             .transform('count')
     df['patient row count'] = patientcounts # Each row holds how many times the patient was measured
+    df['patient row count'] = scaler.fit_transform(df['patient row count'].values.reshape(-1, 1))
 
     ### Create dummies for categorical columns
     df = pd.get_dummies(df, columns= ['ethnicity', 'gender', 'cellattributevalue', 'celllabel', 'labmeasurenamesystem'])
@@ -228,12 +234,14 @@ def preprocess_x(df):
                     .max() \
                     .reset_index(name='max_offset')
     df = pd.merge(df, max_offset, on='patientunitstayid', how='left')
+    df['max_offset'] = scaler.fit_transform(df['max_offset'].values.reshape(-1, 1))
 
     ### Median offset
     median_offset = df.groupby('patientunitstayid')['offset'] \
                     .median() \
                     .reset_index(name='median_offset')
     df = pd.merge(df, median_offset, on='patientunitstayid', how='left')
+    df['median_offset'] = scaler.fit_transform(df['median_offset'].values.reshape(-1, 1))
 
 
     ### Capillary Refill
@@ -269,17 +277,31 @@ def preprocess_x(df):
     df = pd.merge(df, nursing_cols, on='patientunitstayid', how='left')
     df = df.drop(columns=['nursingchartvalue'])
     df = pd.get_dummies(df, columns=['nursingchartcelltypevalname'])
+
+    df['GCS Total'] = scaler.fit_transform(df['GCS Total'].values.reshape(-1, 1))
+    df['Heart Rate'] = scaler.fit_transform(df['Heart Rate'].values.reshape(-1, 1))
+
+    ### Grouped these together because they seemed sufficiently related
+    df[['Invasive BP Diastolic', 'Invasive BP Mean', 'Invasive BP Systolic']] = scaler.fit_transform(\
+        df[['Invasive BP Diastolic', 'Invasive BP Mean', 'Invasive BP Systolic']].values)
+    df[['Non-Invasive BP Diastolic', 'Non-Invasive BP Mean', 'Non-Invasive BP Systolic']] = scaler.fit_transform(\
+        df[['Non-Invasive BP Diastolic', 'Non-Invasive BP Mean', 'Non-Invasive BP Systolic']].values)
     
-    df.loc[df['GCS Total'] > 0, 'nursingchartcelltypevalname_GCS Total'] = 1
-    df.loc[df['Heart Rate'] > 0, 'nursingchartcelltypevalname_Heart Rate'] = 1
-    df.loc[df['Invasive BP Diastolic'] > 0, 'nursingchartcelltypevalname_Invasive BP Diastolic'] = 1
-    df.loc[df['Invasive BP Mean'] > 0, 'nursingchartcelltypevalname_Invasive BP Mean'] = 1
-    df.loc[df['Invasive BP Systolic'] > 0, 'nursingchartcelltypevalname_Invasive BP Systolic'] = 1
-    df.loc[df['Non-Invasive BP Diastolic'] > 0, 'nursingchartcelltypevalname_Non-Invasive BP Diastolic'] = 1
-    df.loc[df['Non-Invasive BP Mean'] > 0, 'nursingchartcelltypevalname_Non-Invasive BP Mean'] = 1
-    df.loc[df['Non-Invasive BP Systolic'] > 0, 'nursingchartcelltypevalname_Non-Invasive BP Systolic'] = 1
-    df.loc[df['O2 Saturation'] > 0, 'nursingchartcelltypevalname_O2 Saturation'] = 1
-    df.loc[df['Respiratory Rate'] > 0, 'nursingchartcelltypevalname_Respiratory Rate'] = 1
+    df['O2 Saturation'] = scaler.fit_transform(df['O2 Saturation'].values.reshape(-1, 1))
+    df['Respiratory Rate'] = scaler.fit_transform(df['Respiratory Rate'].values.reshape(-1, 1))
+
+    # df['nursingchartcelltypevalname_GCS Total'] = (df['GCS Total'].notnull()).astype(int)
+    
+    df.loc[df['GCS Total'].notnull(), 'nursingchartcelltypevalname_GCS Total'] = 1
+    df.loc[df['Heart Rate'].notnull(), 'nursingchartcelltypevalname_Heart Rate'] = 1
+    df.loc[df['Invasive BP Diastolic'].notnull(), 'nursingchartcelltypevalname_Invasive BP Diastolic'] = 1
+    df.loc[df['Invasive BP Mean'].notnull(), 'nursingchartcelltypevalname_Invasive BP Mean'] = 1
+    df.loc[df['Invasive BP Systolic'].notnull(), 'nursingchartcelltypevalname_Invasive BP Systolic'] = 1
+    df.loc[df['Non-Invasive BP Diastolic'].notnull(), 'nursingchartcelltypevalname_Non-Invasive BP Diastolic'] = 1
+    df.loc[df['Non-Invasive BP Mean'].notnull(), 'nursingchartcelltypevalname_Non-Invasive BP Mean'] = 1
+    df.loc[df['Non-Invasive BP Systolic'].notnull(), 'nursingchartcelltypevalname_Non-Invasive BP Systolic'] = 1
+    df.loc[df['O2 Saturation'].notnull(), 'nursingchartcelltypevalname_O2 Saturation'] = 1
+    df.loc[df['Respiratory Rate'].notnull(), 'nursingchartcelltypevalname_Respiratory Rate'] = 1
 
     ### Looking at relevant columns (not sure if offset is relevant, currently ignoring it)
     ### NOT currently considering the units of measurement. Naively assumes they're all the same per labname
@@ -301,8 +323,12 @@ def preprocess_x(df):
     df = pd.merge(df, lab_cols, on='patientunitstayid', how='left')
     df = pd.get_dummies(df, columns=['labname'])
     df = df.drop(columns=['labresult'])
-    df.loc[df['glucose'] > 0, 'labname_glucose'] = 1 
-    df.loc[df['pH'] > 0, 'labname_pH'] = 1
+    
+    df['glucose'] = scaler.fit_transform(df['glucose'].values.reshape(-1, 1))
+    df['pH'] = scaler.fit_transform(df['pH'].values.reshape(-1, 1))
+
+    df.loc[df['glucose'].notnull(), 'labname_glucose'] = 1 
+    df.loc[df['pH'].notnull(), 'labname_pH'] = 1
     df['glucose'].fillna(0, inplace=True)
     df['pH'].fillna(0, inplace=True)
 
@@ -334,8 +360,11 @@ def preprocess_x(df):
     df.insert(0, 'Has Weight', 0)
     df.insert(0, 'Has Height', 0)
 
-    df.loc[df['admissionweight'] > 0, 'Has Weight'] = 1
-    df.loc[df['admissionheight'] > 0, 'Has Height'] = 1
+    df['admissionweight'] = scaler.fit_transform(df['admissionweight'].values.reshape(-1, 1))
+    df['admissionheight'] = scaler.fit_transform(df['admissionheight'].values.reshape(-1, 1))
+
+    df.loc[df['admissionweight'].notnull(), 'Has Weight'] = 1
+    df.loc[df['admissionheight'].notnull(), 'Has Height'] = 1
     
     df['admissionweight'].fillna(0, inplace=True)
     df['admissionheight'].fillna(0, inplace=True)
