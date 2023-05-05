@@ -55,13 +55,11 @@ class Model(Module):
                 ReLU(),
                 Linear(15, 2),
                 Softmax(1),
-                # Linear(15, 1),
-                # Sigmoid(),
                 )
 
 
         
-        self.optim_fn = optim.Adam(self.parameters(), lr=self.lr)
+        self.optim_fn = optim.RMSprop(self.parameters(), lr=self.lr) # optim.Adam(self.parameters(), lr=self.lr)
         class_weights = to_device(torch.Tensor([1848 / 2016, 168 / 2016]), get_default_device())
         self.loss_fn = CrossEntropyLoss(class_weights) 
 
