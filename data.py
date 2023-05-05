@@ -215,6 +215,8 @@ def preprocess_test(df, y = None):
 def preprocess_x(df):
     scaler = StandardScaler() 
 
+    df['unitvisitnumber'] = scaler.fit_transform(df['unitvisitnumber'].values.reshape(-1, 1))
+
     ### Aggregate the all the rows of a certain patient
     patientcounts = df.groupby('patientunitstayid')[['patientunitstayid']]\
             .transform('count')
