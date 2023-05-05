@@ -191,7 +191,7 @@ class Model(Module):
         # correct += torch.sum(torch.round(pred).squeeze() == Y)
         total += X.shape[0]
 
-        f1 = f1_score(Y.cpu().detach(), classes.cpu().detach())
+        f1 = f1_score(Y.cpu().detach(), classes.cpu().detach(), average='macro')
 
         # print(Y.cpu().detach())
         cpupred = pred.cpu().detach()

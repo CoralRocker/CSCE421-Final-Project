@@ -27,8 +27,8 @@ def main():
     sample_size = 1000
     lr = 0.00005
     momentum = 0.2
-    epochs = 100
-    plot_training = True
+    epochs = 50
+    plot_training = False
 
     num_models = 5
 
