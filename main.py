@@ -9,7 +9,7 @@ import pandas as pd
 from sklearn.metrics import roc_auc_score
 
 
-from data import load_data, get_dataloaders, to_device
+from data import load_data, get_dataloaders, to_device, preprocess_x
 from parser import parse
 from model import Model
 
@@ -20,20 +20,21 @@ def main():
     x = load_data("train_x.csv")
     y = load_data("train_y.csv")
 
-    train_dl, val_dl, device = get_dataloaders(x, y)
+    # train_dl, val_dl, device = get_dataloaders(x, y)
 
-    lr = 0.01
-    epochs = 5
+    # lr = 0.01
+    # epochs = 5
 
-    model = Model(lr, epochs)
-    model = model.to(device)
+    # model = Model(lr, epochs)
+    # model = model.to(device)
 
-    model.fit(train_dl, val_dl)
+    # model.fit(train_dl, val_dl)
 
     # train_x, train_y, test_x, test_y = split_data(x, y)
 
     # ###### Your Code Here #######
     # # Add anything you want here
+    processed_x_train = preprocess_x(x)
     # ############################
 
     # processed_x_train = preprocess_x(train_x)
