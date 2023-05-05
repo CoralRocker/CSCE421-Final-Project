@@ -16,6 +16,7 @@ from data import *
 from parser import parse
 from model import Model
 
+np.seterr(all='raise')
 
 def main():
     args = parse()
@@ -27,13 +28,13 @@ def main():
     sample_size = 1000
     lr = 1e-5
     momentum = 0.2
-    epochs = 400
+    epochs = 150
     plot_training = True
     show_figs = False
     num_models = 5
 
-    weights = [0.01, 0]
-    epochs_arr = [10, 20, 50, 100, 150, 200, 500, 1000]
+    epochs_arr = [75, 100, 125, 150]
+    sample_size_arr = [0]
 
     losses = []
     acces = []
@@ -41,9 +42,9 @@ def main():
     roces = []
     
 
-    for epochs in epochs_arr:
+    for sample_size in sample_size_arr:
 
-        print(f"Learning Rate = {lr}, Epochs = {epochs}")
+        print(f"Learning Rate = {lr}, Epochs = {epochs}, OverSample Size = {sample_size}")
         dataset_losses = []
         dataset_accuracies = []
         dataset_f1_scores = []
@@ -102,48 +103,56 @@ def main():
         print("")
 
     if plot_training:
-        for i, epochs in enumerate(epochs_arr): 
+        for i, sample_size in enumerate(sample_size_arr): 
 
-            plt.title(f"Loss Vs Epochs, LR = {lr}, Epochs = {epochs}")
+            plt.title(f"Loss Vs Epochs, LR = {lr}, Epochs = {epochs}, OverSample Size = {sample_size}")
             x_range = range(1, epochs+1)
             plt.plot(x_range, losses[i][0], label="Training Loss")
             plt.plot(x_range, losses[i][1], label="Validation Loss")
             plt.legend()
             plt.xlabel("Epoch")
             plt.ylabel("Loss")
-            plt.savefig(f"Loss_V_Epochs_lr{lr}_Epochs_{epochs}.png")
+            plt.savefig(f"Loss_V_Epochs_lr{lr}_Epochs_{epochs}_OverSampleSize_{sample_size}.png")
             if show_figs:
                 plt.show()
+            else:
+                plt.clf()
 
-            plt.title(f"Accuracy Vs Epochs, LR = {lr}, Epochs = {epochs}") 
+            plt.title(f"Accuracy Vs Epochs, LR = {lr}, Epochs = {epochs}, OverSample Size = {sample_size}") 
             plt.plot(x_range, acces[i][0], label="Training Accuracy")
             plt.plot(x_range, acces[i][1], label="Validation Accuracy")
             plt.legend()
             plt.xlabel("Epoch")
             plt.ylabel("Accuracy")
-            plt.savefig(f"BalancedAccuracy_V_Epochs_lr{lr}_Epochs_{epochs}.png")
+            plt.savefig(f"BalancedAccuracy_V_Epochs_lr{lr}_Epochs_{epochs}_OverSampleSize_{sample_size}.png")
             if show_figs:
                 plt.show()
+            else:
+                plt.clf()
 
-            plt.title(f"F1 Score Vs Epochs, LR = {lr}, Epochs = {epochs}")
+            plt.title(f"F1 Score Vs Epochs, LR = {lr}, Epochs = {epochs}, OverSample Size = {sample_size}")
             plt.plot(x_range, f1es[i][0], label="Training F1")
             plt.plot(x_range, f1es[i][1], label="Validation F1")
             plt.legend()
             plt.xlabel("Epoch")
             plt.ylabel("F1 Score")
-            plt.savefig(f"F1Score_V_Epochs_lr{lr}_Epochs_{epochs}.png")
+            plt.savefig(f"F1Score_V_Epochs_lr{lr}_Epochs_{epochs}_OverSampleSize_{sample_size}.png")
             if show_figs:
                 plt.show()
+            else:
+                plt.clf()
             
-            plt.title(f"ROC-AUC Vs Epochs, LR = {lr}, Epochs = {epochs}")
+            plt.title(f"ROC-AUC Vs Epochs, LR = {lr}, Epochs = {epochs}, OverSample Size = {sample_size}")
             plt.plot(x_range, roces[i][0], label="Training ROC-AUC")
             plt.plot(x_range, roces[i][1], label="Validation ROC-AUC")
             plt.legend()
             plt.xlabel("Epoch")
             plt.ylabel("ROC-AUC")
-            plt.savefig(f"ROCAUC_V_Epochs_lr{lr}_Epochs_{epochs}.png")
+            plt.savefig(f"ROCAUC_V_Epochs_lr{lr}_Epochs_{epochs}_OverSampleSize_{sample_size}.png")
             if show_figs:
                 plt.show()
+            else:
+                plt.clf()
 
 
 
