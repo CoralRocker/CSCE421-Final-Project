@@ -6,7 +6,7 @@ import pandas as pd
 
 from collections import OrderedDict
 
-from sklearn.metrics import precision_recall_curve, roc_auc_score, f1_score, balanced_accuracy_score
+from sklearn.metrics import precision_recall_curve, roc_auc_score, f1_score, balanced_accuracy_score, fbeta_score
 import matplotlib.pyplot as plt
 
 from data import get_default_device, to_device
@@ -62,14 +62,14 @@ class Model(Module):
 
         self.output = Sequential(
                 Linear(intermediate_size, 1),
-                Sigmoid(),
+                # Sigmoid(),
                 )
 
-
+        self.sigmoid = Sigmoid()
         
         self.optim_fn = optim.Adam(self.parameters(), lr=self.lr)
         # class_weights = to_device(torch.Tensor([1848 / 2016, 168 / 2016]), get_default_device())
-        self.loss_fn = BCELoss() #CrossEntropyLoss(class_weights) 
+        self.loss_fn = BCEWithLogitsLoss() # BCELoss() #CrossEntropyLoss(class_weights) 
 
     def forward(self, X):
         inp = self.input(X)
@@ -123,21 +123,26 @@ class Model(Module):
                 loss.backward()
 
                 self.optim_fn.step()
+
+                pred = self.sigmoid(pred)
+                
+                ycpu = y.cpu().detach()
+                classes = torch.round(pred).squeeze().cpu().detach()
                 
                 tr_losses.append(loss.item())
                 # _, classes = torch.max(pred, dim=1)
                 # correct += torch.sum(classes == y).item()
-                classes = torch.round(pred)
+                # classes = torch.round(pred)
                 
-                correct += torch.sum(torch.round(pred).squeeze() == y).item()
+                correct += torch.sum(ycpu == classes).item()
                 total += pred.size(0)
                 
-                tr_f1.append(f1_score(y.cpu().detach(), classes.cpu().detach(), zero_division=0))
+                tr_f1.append(f1_score(ycpu, classes, zero_division=0))
 
-                train_accuracy.append(balanced_accuracy_score(y.cpu().detach(), classes.cpu().detach()))
+                train_accuracy.append(balanced_accuracy_score(ycpu, classes))
 
                 try:
-                    rocauc = roc_auc_score(y.cpu().detach(), pred.squeeze().cpu().detach())
+                    rocauc = roc_auc_score(ycpu, pred.squeeze().cpu().detach())
                 except ValueError:
                     rocauc = 0
 
@@ -166,25 +171,29 @@ class Model(Module):
 
             for (x, y) in val_dl:
                 y = y.view(-1, 1)
-                pred = self.forward(x)
+                pred = self(x)
 
                 loss = self.loss_fn(pred, y.float())
                 val_losses.append(loss.item())
 
                 self.optim_fn.step()
 
+                pred = self.sigmoid(pred)
+
                 #_, classes = torch.max(pred, dim=1)
-                classes = torch.round(pred).squeeze()
-                val_f1.append(f1_score(y.cpu().detach(), classes.cpu().detach(), zero_division=0))
-                val_accuracy.append(balanced_accuracy_score(y.cpu().detach(), classes.cpu().detach()))
+                classes = torch.round(pred).squeeze().cpu().detach()
+                ycpu = y.cpu().detach()
+
+                val_f1.append(f1_score(ycpu, classes, zero_division=0))
+                val_accuracy.append(balanced_accuracy_score(ycpu, classes))
 
                 # val_f1.append(f1_score(y.cpu().detach(), classes.cpu().detach(), zero_division=0))
                 #correct += torch.sum(classes == y).item()
-                correct += torch.sum(torch.round(pred).squeeze() == y).item()
+                correct += torch.sum(classes == ycpu).item()
                 total += x.size(0)
                 
                 try:
-                    rocauc = roc_auc_score(y.cpu().detach(), pred.squeeze().cpu().detach())
+                    rocauc = roc_auc_score(ycpu, pred.squeeze().cpu().detach())
                 except ValueError:
                     rocauc = 0
 
@@ -202,15 +211,16 @@ class Model(Module):
                 print(f"Stopping early at epoch {epoch+1}")
                 break;
 
-            if (epoch + 1) % 20 == -1:  
+            if (epoch + 1) % 5 == 0:  
                 # Print progress
                 if val_accuracy is not None:
-                    print("Epoch {}/{}, train_loss: {:.4f}, val_loss: {:.4f}, train_accuracy: {:.4f}, val_accuracy: {:.4f}"
-                              .format(epoch+1, self.epochs, train_loss, val_loss, train_accuracy, val_accuracy))
+                    print("\rEpoch {}/{}, train_loss: {:.4f}, val_loss: {:.4f}, train_accuracy: {:.4f}, val_accuracy: {:.4f}"
+                              .format(epoch+1, self.epochs, train_loss, val_loss, train_accuracy, val_accuracy), end="")
                 else:
-                    print("Epoch {}/{}, train_loss: {:.4f}, train_accuracy: {:.4f}"
-                              .format(epoch+1, self.epochs, train_loss, train_accuracy))
+                    print("\rEpoch {}/{}, train_loss: {:.4f}, train_accuracy: {:.4f}"
+                              .format(epoch+1, self.epochs, train_loss, train_accuracy), end="")
 
+        print("")
         return train_losses, train_accuracies, train_f1, train_rocauc, validation_losses, validation_accuracies, validation_f1, validation_rocauc, epoch+1
             
 
@@ -224,20 +234,26 @@ class Model(Module):
         pred = self.forward(X)
         
         loss = self.loss_fn(pred, Y.float())
+        
+        pred = self.sigmoid(pred)
 
         #_, classes = torch.max(pred, dim=1)
         #correct += torch.sum(classes == Y).item()
         correct += torch.sum(torch.round(pred).squeeze() == Y)
         total += X.shape[0]
 
-        f1 = f1_score(Y.cpu().detach(), torch.round(pred).squeeze().cpu().detach())
+        ycpu = Y.cpu().detach()
+        classes = torch.round(pred).squeeze().cpu().detach()
+
+        # f1 = f1_score(ycpu, classes)
+        f1 = fbeta_score(ycpu, classes, beta=2)
         #f1 = f1_score(Y.cpu().detach(), classes.cpu().detach(), average='macro')
 
         #cpupred = pred.cpu().detach()
         # rocauc = roc_auc_score(Y.cpu().detach(), torch.maximum(cpupred[:, 0], cpupred[:, 1])) 
 
-        rocauc = roc_auc_score(Y.cpu().detach(), torch.round(pred).cpu().detach())
-        accuracy = balanced_accuracy_score(Y.cpu().detach(), torch.round(pred).cpu().detach())
+        rocauc = roc_auc_score(ycpu, pred.squeeze().cpu().detach())
+        accuracy = balanced_accuracy_score(ycpu, classes)
 
         return loss.item(), accuracy, rocauc, f1
         
@@ -246,7 +262,7 @@ class Model(Module):
     def predict_proba(self, X):
         probs = []
         for x in X:
-            probs.append(self.forward(x).item())
+            probs.append(self.sigmoid(self.forward(x)).item())
 
         return probs
 
