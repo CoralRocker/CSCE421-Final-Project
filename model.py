@@ -4,6 +4,8 @@ import torch
 import numpy as np
 import pandas as pd
 
+from collections import OrderedDict
+
 from sklearn.metrics import precision_recall_curve, roc_auc_score, f1_score, balanced_accuracy_score
 import matplotlib.pyplot as plt
 
@@ -36,7 +38,7 @@ class EarlyTrainingStop():
         return False
 
 class Model(Module):
-    def __init__(self, lr=0.001, n_epochs=5):
+    def __init__(self, lr=0.001, n_epochs=5, intermediate_size=49, num_hidden=0):
         super(Model, self).__init__()
 
         self.lr = lr
@@ -48,14 +50,18 @@ class Model(Module):
         # You can add arguements to the initialization as needed
         ########################################################################
 
-        self.layer = Sequential(
-                Linear(49, 75),
-                Tanh(),
-                Linear(75, 75),
-                ReLU(),
-                # Linear(75, 2),
-                # Softmax(1),
-                Linear(75, 1),
+        self.input = Sequential(
+                Linear(49, intermediate_size),
+                Tanh()
+                )
+        self.hidden = Sequential()
+        
+        for i in range(num_hidden):
+            self.hidden.append(Linear(intermediate_size, intermediate_size))
+            self.hidden.append(ReLU())
+
+        self.output = Sequential(
+                Linear(intermediate_size, 1),
                 Sigmoid(),
                 )
 
@@ -66,7 +72,10 @@ class Model(Module):
         self.loss_fn = BCELoss() #CrossEntropyLoss(class_weights) 
 
     def forward(self, X):
-        return self.layer(X)
+        inp = self.input(X)
+        hid = self.hidden(inp)
+        return self.output(hid)
+        
 
 
     def fit(self, train_dl, val_dl):
